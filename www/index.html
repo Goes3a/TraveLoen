@@ -324,7 +324,11 @@ function vAgenda(){
   const m = $("#main"), canAdd = !S.trips.length || isAdmin();
   let h = "";
   if(!S.trips.length) h += `<div class="card hero"><div class="title">Mulai dari sini</div>
-    <div style="margin-top:6px;font-size:14px">Isi data agenda perjalanan dinas dulu. Setelah itu tambahkan Traveler, lalu catat Expense.</div></div>`;
+    <div style="margin-top:6px;font-size:14px">Isi data agenda perjalanan dinas dulu. Setelah itu tambahkan Traveler, lalu catat Expense.</div></div>
+    <div class="card"><h2>${ic("restore")}Sudah punya file cadangan?</h2>
+    <div class="ln" style="margin:0 0 12px">Muat file .json dari aplikasi Rekap Dinas atau TraveLoen.</div>
+    <button class="btn tonal w" id="aRs">${ic("restore","s")}Muat file cadangan</button>
+    <input type="file" id="aFile" accept=".json,application/json" hidden></div>`;
   if(canAdd) h += `<div class="card"><h2>${ic("add")}Tambah Agenda</h2>
     <label class="f">Agenda<input id="aName" placeholder="Nama perjalanan dinas"></label>
     <div class="row"><label class="f">Start Date<input type="date" id="aStart"></label>
@@ -342,6 +346,7 @@ function vAgenda(){
   }).join("") : `<div class="empty">${ic("event")}Belum ada agenda</div>`) + `</div>`;
   m.innerHTML = h;
   m.querySelectorAll("[data-open]").forEach(b=>b.onclick=()=>{ S.cur=b.dataset.open; S.me=null; save(); go("dash"); });
+  if($("#aRs")){ $("#aRs").onclick = () => $("#aFile").click(); $("#aFile").onchange = restore; }
   if(canAdd){
     const upd = () => { const a=$("#aStart").value, b=$("#aEnd").value; $("#aDur").innerHTML = ic("event","xs") + "Duration: " + (a&&b&&b>=a ? days(a,b)+" hari" : "-"); };
     $("#aStart").onchange = () => { if($("#aEnd").value < $("#aStart").value) $("#aEnd").value = $("#aStart").value; upd(); };
@@ -592,17 +597,31 @@ async function backup(){
     toast("Cadangan siap");
   }catch(e){ if(!/cancel/i.test(String(e && e.message))) toast("Gagal membuat cadangan"); }
 }
+// Terima file cadangan TraveLoen maupun cadangan aplikasi Rekap Dinas versi web lama.
+function importData(o, ask = true){
+  if(!o || !Array.isArray(o.trips) || o.trips.some(t => !t || !Array.isArray(t.t) || !Array.isArray(t.e))) throw 0;
+  if(!S.trips.length){
+    if(ask && !confirm(`Muat ${o.trips.length} agenda dari file cadangan?`)) return;
+    S = {trips:o.trips, cur:o.cur, me:o.me};
+    toast(`${o.trips.length} agenda dimuat`);
+  }else if(!ask || confirm(`Tambahkan ${o.trips.length} agenda dari file ke data saat ini?\n\nOK = tambahkan (data lama tetap ada)\nBatal = pilihan lain`)){
+    const have = new Set(S.trips.map(t=>t.id));
+    const add = o.trips.filter(t => !have.has(t.id));
+    S.trips.push(...add);
+    if(!add.length) return toast("Agenda di file sudah ada, tidak ada yang ditambahkan");
+    S.cur = add[0].id; S.me = null;
+    toast(`${add.length} agenda ditambahkan`);
+  }else{
+    if(!confirm("Ganti SELURUH data saat ini dengan isi file?\nData saat ini akan hilang.")) return;
+    S = {trips:o.trips, cur:o.cur, me:o.me};
+    toast("Data dipulihkan");
+  }
+  editingId = null; draft = null; save(); go("dash");
+}
 function restore(ev){
   const f = ev.target.files[0]; ev.target.value = ""; if(!f) return;
   const r = new FileReader();
-  r.onload = () => {
-    try{
-      const o = JSON.parse(r.result);
-      if(!o || !Array.isArray(o.trips) || o.trips.some(t => !t || !Array.isArray(t.t) || !Array.isArray(t.e))) throw 0;
-      if(!confirm(`Pulihkan ${o.trips.length} agenda dari cadangan? Data saat ini akan DIGANTI.`)) return;
-      S = {trips:o.trips, cur:o.cur, me:o.me}; editingId = null; draft = null; save(); toast("Data dipulihkan"); go("dash");
-    }catch(e){ alert("File cadangan tidak valid."); }
-  };
+  r.onload = () => { try{ importData(JSON.parse(r.result)); }catch(e){ alert("File cadangan tidak valid."); } };
   r.readAsText(f);
 }
 
