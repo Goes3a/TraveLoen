@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="id">
 <head>
 <meta charset="utf-8">
@@ -246,7 +246,8 @@ const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp
 const rp = n => (n < 0 ? "-" : "") + "Rp" + Math.abs(Math.round(n)).toLocaleString("id-ID");
 const dmy = iso => { if(!iso) return "-"; const [y,m,d] = iso.split("-"); return `${d}/${m}/${y}`; };
 const today = () => { const d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset()*60000).toISOString().slice(0,10); };
-const days = (a,b) => { const p = s => Date.UTC(...s.split("-").map((v,i)=>i==1?v-1:+v)); return Math.round((p(b)-p(a))/86400000); };
+// Duration inklusif: 15 Nov s/d 18 Nov = 4 hari (hari mulai dan hari selesai sama-sama dihitung)
+const days = (a,b) => { const p = s => Date.UTC(...s.split("-").map((v,i)=>i==1?v-1:+v)); return Math.round((p(b)-p(a))/86400000) + 1; };
 const ini = n => esc((n||"?").trim().charAt(0).toUpperCase() || "?");
 function toast(msg){
   const t = $("#toast"); t.textContent = msg; t.classList.add("show");
@@ -628,62 +629,192 @@ function restore(ev){
 /* ============ PDF ============ */
 async function exportPdf(scope){
   try{
-    const T = trip(), st = stats(T), one = scope !== "all" ? T.t.find(x=>x.id===scope) : null;
     if(!window.jspdf) return toast("Library PDF belum termuat");
+    const T = trip(), st = stats(T), one = scope !== "all" ? T.t.find(x=>x.id===scope) : null;
     const doc = new window.jspdf.jsPDF({unit:"mm", format:"a4"});
-    const W = 210, M = 14, CW = W - 2*M; let y = M;
-    const need = h => { if(y + h > 284){ doc.addPage(); y = M; } };
-    const txt = (s,x,yy,o) => doc.text(String(s), x, yy, o);
+    const W = 210, H = 297, M = 14, CW = W - 2*M, BOT = H - 18;
+    const C = {pri:[11,107,102], dk:[6,70,66], pc:[191,235,229], ink:[28,27,26], mute:[110,108,102], line:[222,219,211],
+      zebra:[246,245,241], err:[179,38,30], errc:[251,228,226], amb:[197,138,0], ambc:[255,236,200], ambt:[138,92,0], white:[255,255,255]};
+    const fc = c => doc.setFillColor(c[0],c[1],c[2]);
+    const tc = c => doc.setTextColor(c[0],c[1],c[2]);
+    const dc = c => doc.setDrawColor(c[0],c[1],c[2]);
+    const f = (size, bold) => { doc.setFont("helvetica", bold ? "bold" : "normal"); doc.setFontSize(size); };
+    const wrap = (s, w) => doc.splitTextToSize(String(s), w);
+    const pc = (a,b) => b > 0 ? Math.round(a / b * 100) : 0;
+    let y = 0;
+
+    const newPage = () => {
+      doc.addPage(); fc(C.pri); doc.rect(0, 0, W, 10, "F");
+      f(8, true); tc(C.white); doc.text("TraveLoen  |  " + T.agenda, M, 6.4); y = 18;
+    };
+    const need = h => { if(y + h > BOT) newPage(); };
+
+    /* ---- Kop invoice ---- */
+    fc(C.pri); doc.rect(0, 0, W, 36, "F"); fc(C.dk); doc.rect(0, 36, W, 1.4, "F");
+    tc(C.white); f(24, true); doc.text("INVOICE", M, 17);
+    f(10, false); doc.text("Rekap Keuangan Perjalanan Dinas", M, 24);
+    f(14, true); doc.text("TraveLoen", W - M, 14, {align:"right"});
+    const no = `INV-${today().replace(/-/g,"")}-${String(T.id).slice(-4).toUpperCase()}`;
+    f(9, false); doc.text(no, W - M, 21, {align:"right"}); doc.text("Dicetak " + dmy(today()), W - M, 26.5, {align:"right"});
+    y = 46;
+
+    /* ---- Info agenda ---- */
+    const Lc = [["Agenda", T.agenda], ["Periode", `${dmy(T.start)} - ${dmy(T.end)}`], ["Durasi", `${days(T.start,T.end)} hari`]];
+    const Rc = [["Lokasi", T.location || "-"], ["Cakupan", one ? one.name : "Semua traveler"], ["Traveler", `${T.t.length} orang`]];
+    const colW = CW / 2;
+    f(9.5, false);
+    const ri = Lc.map((l,i) => { const a = wrap(l[1], colW - 34), b = wrap(Rc[i][1], colW - 34); return {a, b, h: Math.max(a.length, b.length) * 4.4 + 2}; });
+    const ih = ri.reduce((s,r) => s + r.h, 0) + 7;
+    fc(C.zebra); dc(C.line); doc.roundedRect(M, y, CW, ih, 3, 3, "FD");
+    let iy = y + 7;
+    ri.forEach((r,i) => {
+      f(7.5, true); tc(C.mute); doc.text(Lc[i][0].toUpperCase(), M + 5, iy); doc.text(Rc[i][0].toUpperCase(), M + colW + 5, iy);
+      f(9.5, true); tc(C.ink);
+      r.a.forEach((ln,k) => doc.text(ln, M + 29, iy + k*4.4));
+      r.b.forEach((ln,k) => doc.text(ln, M + colW + 29, iy + k*4.4));
+      iy += r.h;
+    });
+    y += ih + 9;
+
+    const section = t => { need(16); fc(C.pri); doc.roundedRect(M, y, 1.8, 6, 0.9, 0.9, "F"); f(13, true); tc(C.ink); doc.text(t, M + 5, y + 4.8); y += 11; };
+
+    /* ---- Summary ---- */
+    section("Summary");
+    const p1 = one ? st.per[one.id] : null;
+    const kpi = one ? [["Initial Cash", p1.cash], ["Expense (porsi)", p1.total], ["Balance", p1.bal]]
+                    : [["Total Initial Cash", st.cash], ["Total Expenses", st.total], ["Balance Overall", st.bal]];
+    need(30);
+    const gap = 4, kw = (CW - 2*gap) / 3;
+    kpi.forEach(([l,v], i) => {
+      const x = M + i * (kw + gap), isBal = i === 2, bad = isBal && v < 0;
+      fc(isBal ? (bad ? C.errc : C.pc) : C.zebra); dc(C.line);
+      doc.roundedRect(x, y, kw, 22, 3, 3, isBal ? "F" : "FD");
+      f(7.5, true); tc(isBal ? (bad ? C.err : C.dk) : C.mute); doc.text(l.toUpperCase(), x + 4, y + 7);
+      f(12.5, true); tc(isBal ? (bad ? C.err : C.dk) : C.ink); doc.text(rp(v), x + 4, y + 16);
+    });
+    y += 28;
+
+    const fo = one ? p1.food : st.food, tr = one ? p1.trans : st.trans, tot = fo + tr;
+    need(24);
+    f(7.5, true); tc(C.mute); doc.text("KOMPOSISI PENGELUARAN", M, y + 3); y += 6;
+    fc(C.line); doc.roundedRect(M, y, CW, 5, 2.5, 2.5, "F");
+    if(tot > 0){
+      fc(C.pri); doc.roundedRect(M, y, CW, 5, 2.5, 2.5, "F");
+      if(fo > 0){ fc(C.amb); doc.roundedRect(M, y, Math.max(CW * fo / tot, 5), 5, 2.5, 2.5, "F"); }
+    }
+    y += 10;
+    fc(C.amb); doc.circle(M + 1.5, y - 1.1, 1.3, "F"); f(9, false); tc(C.ink);
+    doc.text(`Food  ${rp(fo)}  (${pc(fo,tot)}%)`, M + 5, y);
+    fc(C.pri); doc.circle(M + CW/2 + 1.5, y - 1.1, 1.3, "F");
+    doc.text(`Transport  ${rp(tr)}  (${pc(tr,tot)}%)`, M + CW/2 + 5, y);
+    y += 10;
+
+    /* ---- "Data berbicara" ---- */
+    const paid = {}; T.t.forEach(x => paid[x.id] = 0);
+    T.e.forEach(e => { if(paid[e.source] != null) paid[e.source] += e.price; });
+    const ins = [];
+    const nDays = Math.max(1, days(T.start, T.end));
+    if(!T.e.length){
+      ins.push(["Belum ada data", "Belum ada expense yang tercatat pada agenda ini.", "info"]);
+    }else if(one){
+      const p = p1, diff = paid[one.id] - p.total;
+      ins.push(["Beban", p.total ? `${one.name} menanggung ${rp(p.total)}, atau ${pc(p.total, st.total)}% dari total pengeluaran grup sebesar ${rp(st.total)}.` : `${one.name} belum menanggung pengeluaran apa pun.`, "info"]);
+      if(p.total) ins.push(["Komposisi", `Dari porsi itu, Food ${pc(p.food,p.total)}% (${rp(p.food)}) dan Transport ${pc(p.trans,p.total)}% (${rp(p.trans)}).`, "info"]);
+      if(p.cash || p.total) ins.push(["Saldo", p.bal < 0 ? `Initial Cash ${rp(p.cash)} tidak cukup menutup porsi beban. Defisit ${rp(-p.bal)}.` : `Initial Cash ${rp(p.cash)} masih mencukupi. Saldo tersisa ${rp(p.bal)}.`, p.bal < 0 ? "bad" : "ok"]);
+      let best = null; T.e.forEach(e => { const v = portions(e)[one.id] || 0; if(v > 0 && (!best || v > best.v)) best = {e, v}; });
+      if(best) ins.push(["Porsi terbesar", `${best.e.name} menjadi porsi terbesar ${one.name}: ${rp(best.v)} (${pc(best.v, p.total)}% dari bebannya).`, "warn"]);
+      if(paid[one.id] || diff) ins.push(["Talangan", diff > 0 ? `${one.name} membayar ${rp(paid[one.id])} di muka, ${rp(diff)} lebih besar dari porsi bebannya.` : diff < 0 ? `${one.name} membayar ${rp(paid[one.id])} di muka, ${rp(-diff)} lebih kecil dari porsi bebannya.` : `${one.name} membayar ${rp(paid[one.id])} di muka, tepat sama dengan porsi bebannya.`, "info"]);
+    }else{
+      ins.push(["Pengeluaran", `Total pengeluaran ${rp(st.total)} selama ${nDays} hari dari ${T.e.length} transaksi, rata-rata ${rp(st.total / nDays)} per hari.`, "info"]);
+      ins.push(["Kas", st.cash === 0 ? "Belum ada Initial Cash yang tercatat." : st.bal < 0 ? `Kas awal ${rp(st.cash)} sudah terpakai ${pc(st.total, st.cash)}%. Defisit ${rp(-st.bal)}.` : `Kas awal ${rp(st.cash)} baru terpakai ${pc(st.total, st.cash)}%. Saldo tersisa ${rp(st.bal)}.`, st.cash && st.bal >= 0 ? "ok" : "bad"]);
+      ins.push(["Komposisi", fo === tr ? `Food dan Transport sama besar, masing-masing ${rp(fo)}.` : fo > tr ? `Food mendominasi dengan ${pc(fo,tot)}% (${rp(fo)}), sedangkan Transport ${pc(tr,tot)}%.` : `Transport mendominasi dengan ${pc(tr,tot)}% (${rp(tr)}), sedangkan Food ${pc(fo,tot)}%.`, "info"]);
+      const top = [...T.t].sort((a,b) => st.per[b.id].total - st.per[a.id].total)[0];
+      if(top && st.per[top.id].total > 0) ins.push(["Beban terbesar", `${top.name} menanggung beban terbesar: ${rp(st.per[top.id].total)} (${pc(st.per[top.id].total, st.total)}% dari total).`, "warn"]);
+      const neg = T.t.filter(x => st.per[x.id].bal < 0);
+      if(T.t.length) ins.push(["Status saldo", neg.length ? `${neg.length} dari ${T.t.length} traveler berstatus defisit: ${neg.map(x => x.name).join(", ")}.` : "Semua traveler masih memiliki saldo positif.", neg.length ? "bad" : "ok"]);
+      const cred = [...T.t].sort((a,b) => (paid[b.id] - st.per[b.id].total) - (paid[a.id] - st.per[a.id].total))[0];
+      if(cred && paid[cred.id] - st.per[cred.id].total > 0) ins.push(["Talangan", `${cred.name} membayar ${rp(paid[cred.id])} di muka, ${rp(paid[cred.id] - st.per[cred.id].total)} melebihi porsi bebannya sendiri.`, "info"]);
+      const big = [...T.e].sort((a,b) => b.price - a.price)[0];
+      ins.push(["Expense terbesar", `${big.name} sebesar ${rp(big.price)}, atau ${pc(big.price, st.total)}% dari seluruh pengeluaran.`, "warn"]);
+    }
+    need(22); f(7.5, true); tc(C.mute); doc.text("APA KATA DATA", M, y + 3); y += 7;
+    const bubble = (tag, text, tone) => {
+      const col = tone === "bad" ? [C.errc, C.err] : tone === "warn" ? [C.ambc, C.ambt] : tone === "ok" ? [C.pc, C.dk] : [C.zebra, C.mute];
+      f(9.5, false); const ls = wrap(text, CW - 16), h = 9.5 + ls.length * 4.5;
+      need(h + 4);
+      fc(col[0]); doc.roundedRect(M + 4, y, CW - 4, h, 3, 3, "F");
+      doc.triangle(M + 4.2, y + 4.5, M + 4.2, y + 10, M, y + 7.5, "F");
+      f(7.5, true); tc(col[1]); doc.text(tag.toUpperCase(), M + 9, y + 5.4);
+      f(9.5, false); tc(C.ink); ls.forEach((l,k) => doc.text(l, M + 9, y + 10.4 + k * 4.5));
+      y += h + 3.5;
+    };
+    ins.forEach(i => bubble(i[0], i[1], i[2]));
+    y += 6;
+
+    /* ---- Tabel ---- */
     function table(cols, rows){
-      const draw = (cells, head, bold) => {
-        doc.setFont("helvetica", head||bold ? "bold" : "normal"); doc.setFontSize(9);
-        const lines = cells.map((c,i)=>doc.splitTextToSize(String(c), cols[i].w - 3));
-        const h = Math.max(...lines.map(l=>l.length)) * 4.4 + 3;
-        need(h);
-        if(head){ doc.setFillColor(11,107,102); doc.rect(M, y, CW, h, "F"); doc.setTextColor(255); }
-        else doc.setTextColor(30);
-        let x = M;
-        cells.forEach((c,i)=>{
-          const col = cols[i], tx = col.r ? x + col.w - 1.5 : x + 1.5;
-          lines[i].forEach((ln,k)=> txt(ln, tx, y + 5 + k*4.4, {align: col.r ? "right" : "left"}));
-          x += col.w;
-        });
-        if(!head){ doc.setDrawColor(210); doc.line(M, y+h, M+CW, y+h); }
+      const head = () => {
+        const h = 8; fc(C.dk); doc.rect(M, y, CW, h, "F"); tc(C.white); f(8.5, true);
+        let x = M; cols.forEach(c => { doc.text(c.l, x + c.w / 2, y + 5.3, {align:"center"}); x += c.w; });
         y += h;
       };
-      draw(cols.map(c=>c.l), true);
-      rows.forEach(r => draw(r, false, r._bold));
-      doc.setTextColor(30);
+      need(26); head();
+      rows.forEach((r, idx) => {
+        const prep = r.cells.map((c, i) => {
+          const o = (c !== null && typeof c === "object") ? c : {t:c};
+          f(8.8, !!r.bold); const tl = wrap(o.t, cols[i].w - 4);
+          let sl = []; if(o.sub){ f(7.5, false); sl = wrap(o.sub, cols[i].w - 4); }
+          return {o, tl, sl};
+        });
+        const h = Math.max(...prep.map(p => p.tl.length * 4.2 + p.sl.length * 3.5)) + 3.8;
+        if(y + h > BOT){ newPage(); head(); }
+        if(r.fill){ fc(r.fill); doc.rect(M, y, CW, h, "F"); } else if(idx % 2 === 1){ fc(C.zebra); doc.rect(M, y, CW, h, "F"); }
+        let x = M;
+        prep.forEach((p, i) => {
+          const col = cols[i], al = col.a || "left";
+          const tx = al === "right" ? x + col.w - 2 : al === "center" ? x + col.w / 2 : x + 2;
+          f(8.8, !!r.bold); tc(p.o.color || C.ink);
+          p.tl.forEach((ln,k) => doc.text(ln, tx, y + 4.8 + k * 4.2, {align:al}));
+          if(p.sl.length){ f(7.5, false); tc(C.mute); p.sl.forEach((ln,k) => doc.text(ln, tx, y + 4.8 + p.tl.length * 4.2 + k * 3.5 - 0.3, {align:al})); }
+          x += col.w;
+        });
+        dc(C.line); doc.line(M, y + h, M + CW, y + h);
+        y += h;
+      });
+      y += 8;
     }
-    doc.setFont("helvetica","bold"); doc.setFontSize(18); doc.setTextColor(11,107,102);
-    txt("INVOICE REKAP KEUANGAN PERJALANAN DINAS", M, y+5); y += 11;
-    doc.setTextColor(30); doc.setFontSize(10);
-    const info = [["Agenda", T.agenda], ["Periode", `${dmy(T.start)} - ${dmy(T.end)} (${days(T.start,T.end)} hari)`],
-      ["Lokasi", T.location || "-"], ["Dicetak", dmy(today())], ["Cakupan", one ? one.name : "Semua traveler"]];
-    info.forEach(([k,v])=>{ doc.setFont("helvetica","bold"); txt(k, M, y); doc.setFont("helvetica","normal"); txt(": " + v, M+24, y); y += 5.5; });
-    y += 3;
 
-    const sm = one ? (()=>{const p=st.per[one.id]; return [["Initial Cash",p.cash],["Total Expenses (porsi)",p.total],["Food",p.food],["Transport",p.trans],["Balance",p.bal]]})()
-      : [["Total Initial Cash",st.cash],["Total Expenses",st.total],["Food",st.food],["Transport",st.trans],["Balance Overall",st.bal]];
-    doc.setFont("helvetica","bold"); doc.setFontSize(12); txt("Ringkasan", M, y); y += 5;
-    table([{l:"Keterangan",w:CW*0.6},{l:"Jumlah",w:CW*0.4,r:1}], sm.map(([k,v])=>[k, rp(v)]));
-    y += 6;
-
+    section("Per Traveler");
     const list = one ? [one] : T.t;
-    need(20); doc.setFont("helvetica","bold"); doc.setFontSize(12); txt("Per Traveler", M, y); y += 5;
-    const w = CW/6;
-    table([{l:"Nama",w:CW-5*w+8},{l:"Cash",w:w-2,r:1},{l:"Food",w:w-2,r:1},{l:"Transport",w:w-2,r:1},{l:"Total",w:w-2,r:1},{l:"Balance",w:w,r:1}],
-      list.map(x=>{const p=st.per[x.id]; return [x.name, rp(p.cash), rp(p.food), rp(p.trans), rp(p.total), rp(p.bal)]}));
-    y += 6;
+    const trows = list.map(x => { const p = st.per[x.id];
+      return {cells:[x.name, rp(p.cash), rp(p.food), rp(p.trans), rp(p.total), {t:rp(p.bal), color: p.bal < 0 ? C.err : C.dk}]}; });
+    if(!one && list.length > 1) trows.push({bold:true, fill:C.pc, cells:["TOTAL", rp(st.cash), rp(st.food), rp(st.trans), rp(st.total), {t:rp(st.bal), color: st.bal < 0 ? C.err : C.dk}]});
+    if(!trows.length) trows.push({cells:["Belum ada traveler","","","","",""]});
+    table([{l:"Nama",w:52,a:"left"},{l:"Cash",w:26,a:"right"},{l:"Food",w:26,a:"right"},{l:"Transport",w:26,a:"right"},{l:"Total",w:26,a:"right"},{l:"Balance",w:26,a:"right"}], trows);
 
-    const items = [...T.e].sort((a,b)=>(a.date||"").localeCompare(b.date||""))
+    section("Rincian Expense");
+    const items = [...T.e].sort((a,b) => (a.date||"").localeCompare(b.date||""))
       .map(e => ({e, amt: one ? (portions(e)[one.id] || 0) : e.price}))
       .filter(r => !one || r.amt > 0);
-    need(20); doc.setFont("helvetica","bold"); doc.setFontSize(12); txt("Rincian Expense", M, y); y += 5;
-    const rows = items.map((r,i)=>[i+1, dmy(r.e.date), r.e.name + (r.e.note ? `\n(${r.e.note})` : ""), r.e.type, tname(T,r.e.source), rp(r.amt)]);
-    const tot = items.reduce((a,r)=>a+r.amt,0);
-    const tr = ["", "", "TOTAL", "", "", rp(tot)]; tr._bold = true; rows.push(tr);
-    table([{l:"No",w:10},{l:"Tanggal",w:24},{l:"Expense",w:CW-10-24-22-28-30},{l:"Type",w:22},{l:"Source",w:28},{l:one?"Porsi":"Jumlah",w:30,r:1}], rows);
+    const drows = items.map((r,i) => ({cells:[i+1, dmy(r.e.date), {t:r.e.name, sub:r.e.note || ""}, r.e.type, tname(T, r.e.source), rp(r.amt)]}));
+    const sum = items.reduce((a,r) => a + r.amt, 0);
+    if(!drows.length) drows.push({cells:["","","Belum ada expense","","",""]});
+    else drows.push({bold:true, fill:C.pc, cells:["","","TOTAL","","",rp(sum)]});
+    table([{l:"No",w:10,a:"center"},{l:"Tanggal",w:24,a:"center"},{l:"Expense",w:62,a:"left"},{l:"Type",w:22,a:"center"},{l:"Source",w:30,a:"left"},{l:one?"Porsi":"Jumlah",w:34,a:"right"}], drows);
+
+    f(8, false); tc(C.mute);
+    const note = (one ? `Kolom Porsi menunjukkan bagian ${one.name} pada tiap expense. ` : "Jumlah adalah harga penuh tiap expense; beban per traveler mengikuti pengaturan Sharing. ")
+      + "Sisa pembulatan rupiah dibebankan ke traveler pertama pada daftar Sharing.";
+    const nl = wrap("Catatan: " + note, CW); need(nl.length * 3.8 + 2);
+    nl.forEach((l,k) => doc.text(l, M, y + k * 3.8));
+
+    /* ---- Footer tiap halaman ---- */
+    const n = doc.getNumberOfPages();
+    for(let i = 1; i <= n; i++){
+      doc.setPage(i); dc(C.line); doc.line(M, H - 12, W - M, H - 12); f(8, false); tc(C.mute);
+      doc.text("Dibuat otomatis oleh TraveLoen", M, H - 7.5);
+      doc.text(`Halaman ${i} dari ${n}`, W - M, H - 7.5, {align:"right"});
+    }
 
     const name = `Invoice_${slug(T.agenda)}_${one ? slug(one.name) : "semua"}.pdf`;
     const b64 = doc.output("datauristring").split(",")[1];
