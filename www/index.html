@@ -47,9 +47,10 @@ body{background:var(--bg);color:var(--ink);font:15px/1.45 var(--font);
 /* App bar */
 header{padding:calc(env(safe-area-inset-top) + 14px) 16px 4px;max-width:720px;margin:0 auto}
 .brand{display:flex;align-items:center;gap:12px;margin-bottom:14px}
-.logo{width:44px;height:44px;border-radius:14px;background:var(--pri);color:var(--on-pri);display:grid;place-items:center}
-.brand h1{margin:0;font-size:26px;font-weight:500;letter-spacing:-.2px;line-height:1.1}
-.brand small{display:block;color:var(--mute);font-size:12px;margin-top:2px}
+.logo{width:52px;height:52px;border-radius:15px;display:block;flex:none}
+.wm{height:34px;width:auto;display:block}
+.brand h1{margin:0;line-height:1}
+.brand small{display:block;color:#A4161A;font-weight:500;font-size:12.5px;margin-top:5px}
 .sels{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .sel{position:relative;background:var(--s2);border-radius:var(--r-l);padding:8px 12px 8px 44px;min-width:0}
 .sel>.ic{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--pri)}
@@ -176,8 +177,8 @@ nav button:disabled{opacity:.35}
 <body>
 <header>
   <div class="brand">
-    <div class="logo"><i data-ic="wallet"></i></div>
-    <div><h1>TraveLoen</h1><small>Rekap keuangan perjalanan dinas</small></div>
+    <img class="logo" src="logo.svg" alt="Logo TraveLoen">
+    <div><h1><img class="wm" src="wordmark.svg" alt="TraveLoen"></h1><small>Spend smart, gift more</small></div>
   </div>
   <div class="sels">
     <label class="sel"><i data-ic="event"></i><span>Agenda</span><select id="selTrip"></select></label>
@@ -590,6 +591,35 @@ async function saveFile(name, mime, {base64, text}){
     document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
   }
 }
+// Font PDF (Figtree, mirip Google Sans) dimuat sekali lalu disimpan
+let _fontCache = null;
+async function pdfFonts(){
+  if(_fontCache) return _fontCache;
+  const b64 = async url => {
+    const r = await fetch(url); if(!r.ok) throw new Error("font " + url);
+    const buf = new Uint8Array(await r.arrayBuffer()); let s = "";
+    for(let i = 0; i < buf.length; i += 0x8000) s += String.fromCharCode.apply(null, buf.subarray(i, i + 0x8000));
+    return btoa(s);
+  };
+  _fontCache = {regular: await b64("fonts/Figtree-Regular.ttf"), bold: await b64("fonts/Figtree-Bold.ttf")};
+  return _fontCache;
+}
+// Tulisan TraveLoen (wordmark.svg) dalam warna tertentu menjadi PNG transparan
+async function wordmarkPng(color, widthMm){
+  const svg = (await (await fetch("wordmark.svg")).text()).replace(/url\(#gw\)/g, color);
+  const vb = svg.match(/viewBox="0 0 ([\d.]+) ([\d.]+)"/); const ratio = vb ? +vb[2] / +vb[1] : 100 / 542.91;
+  const im = new Image(); const url = URL.createObjectURL(new Blob([svg], {type:"image/svg+xml"}));
+  await new Promise((res, rej) => { im.onload = res; im.onerror = rej; im.src = url; });
+  const cw = 900, ch = Math.round(cw * ratio), c = document.createElement("canvas"); c.width = cw; c.height = ch;
+  c.getContext("2d").drawImage(im, 0, 0, cw, ch); URL.revokeObjectURL(url);
+  return {data: c.toDataURL("image/png"), w: widthMm, h: widthMm * ratio};
+}
+// Logo (dari logo.svg) menjadi PNG untuk kop invoice
+function logoPng(size = 256){
+  return new Promise((res, rej) => { const im = new Image();
+    im.onload = () => { const c = document.createElement("canvas"); c.width = c.height = size; c.getContext("2d").drawImage(im, 0, 0, size, size); res(c.toDataURL("image/png")); };
+    im.onerror = rej; im.src = "logo.svg"; });
+}
 const slug = s => s.replace(/[^\w\-]+/g,"_").replace(/^_+|_+$/g,"").slice(0,40) || "file";
 
 async function backup(){
@@ -631,14 +661,21 @@ async function exportPdf(scope){
   try{
     if(!window.jspdf) return toast("Library PDF belum termuat");
     const T = trip(), st = stats(T), one = scope !== "all" ? T.t.find(x=>x.id===scope) : null;
-    const doc = new window.jspdf.jsPDF({unit:"mm", format:"a4"});
+    const doc = new window.jspdf.jsPDF({unit:"mm", format:"a4", compress:true});
+    let FONT = "helvetica";
+    try{
+      const ff = await pdfFonts();
+      doc.addFileToVFS("Figtree-Regular.ttf", ff.regular); doc.addFont("Figtree-Regular.ttf", "Figtree", "normal");
+      doc.addFileToVFS("Figtree-Bold.ttf", ff.bold); doc.addFont("Figtree-Bold.ttf", "Figtree", "bold");
+      FONT = "Figtree";
+    }catch(e){ console.warn("Font Figtree tidak termuat, memakai Helvetica", e); }
     const W = 210, H = 297, M = 14, CW = W - 2*M, BOT = H - 18;
-    const C = {pri:[11,107,102], dk:[6,70,66], pc:[191,235,229], ink:[28,27,26], mute:[110,108,102], line:[222,219,211],
-      zebra:[246,245,241], err:[179,38,30], errc:[251,228,226], amb:[197,138,0], ambc:[255,236,200], ambt:[138,92,0], white:[255,255,255]};
+    const C = {pri:[232,56,61], dk:[218,44,52], pc:[255,230,128], accent:[255,210,31], okc:[220,246,228], okt:[24,130,70], ink:[34,30,28], mute:[122,106,98], line:[240,226,200],
+      zebra:[255,249,232], err:[214,40,40], errc:[254,226,226], amb:[255,180,0], ambc:[255,236,200], ambt:[138,92,0], grey:[240,241,243], greyLine:[221,223,228], white:[255,255,255]};
     const fc = c => doc.setFillColor(c[0],c[1],c[2]);
     const tc = c => doc.setTextColor(c[0],c[1],c[2]);
     const dc = c => doc.setDrawColor(c[0],c[1],c[2]);
-    const f = (size, bold) => { doc.setFont("helvetica", bold ? "bold" : "normal"); doc.setFontSize(size); };
+    const f = (size, bold) => { doc.setFont(FONT, bold ? "bold" : "normal"); doc.setFontSize(size); };
     const wrap = (s, w) => doc.splitTextToSize(String(s), w);
     const pc = (a,b) => b > 0 ? Math.round(a / b * 100) : 0;
     let y = 0;
@@ -650,12 +687,17 @@ async function exportPdf(scope){
     const need = h => { if(y + h > BOT) newPage(); };
 
     /* ---- Kop invoice ---- */
-    fc(C.pri); doc.rect(0, 0, W, 36, "F"); fc(C.dk); doc.rect(0, 36, W, 1.4, "F");
-    tc(C.white); f(24, true); doc.text("INVOICE", M, 17);
-    f(10, false); doc.text("Rekap Keuangan Perjalanan Dinas", M, 24);
-    f(14, true); doc.text("TraveLoen", W - M, 14, {align:"right"});
+    fc(C.pri); doc.rect(0, 0, W, 36, "F"); fc(C.accent); doc.rect(0, 36, W, 3, "F");
+    let logo = null; try{ logo = await logoPng(); }catch(e){}
+    if(logo) doc.addImage(logo, "PNG", M, 7, 22, 22, undefined, "FAST");
+    const hx = logo ? M + 28 : M;
+    tc(C.white); f(24, true); doc.text("INVOICE", hx, 17);
+    f(10, false); doc.text("Rekap Keuangan Perjalanan Dinas", hx, 24);
+    let wm = null; try{ wm = await wordmarkPng("#FFFFFF", 46); }catch(e){}
+    if(wm) doc.addImage(wm.data, "PNG", W - M - wm.w, 6.5, wm.w, wm.h, undefined, "FAST");
+    else { f(14, true); doc.text("TraveLoen", W - M, 14, {align:"right"}); }
     const no = `INV-${today().replace(/-/g,"")}-${String(T.id).slice(-4).toUpperCase()}`;
-    f(9, false); doc.text(no, W - M, 21, {align:"right"}); doc.text("Dicetak " + dmy(today()), W - M, 26.5, {align:"right"});
+    f(9, false); doc.text(no, W - M, 23, {align:"right"}); doc.text("Dicetak " + dmy(today()), W - M, 28.5, {align:"right"});
     y = 46;
 
     /* ---- Info agenda ---- */
@@ -676,7 +718,7 @@ async function exportPdf(scope){
     });
     y += ih + 9;
 
-    const section = t => { need(16); fc(C.pri); doc.roundedRect(M, y, 1.8, 6, 0.9, 0.9, "F"); f(13, true); tc(C.ink); doc.text(t, M + 5, y + 4.8); y += 11; };
+    const section = t => { need(38); fc(C.pri); doc.roundedRect(M, y, 1.8, 6, 0.9, 0.9, "F"); f(13, true); tc(C.ink); doc.text(t, M + 5, y + 4.8); y += 11; };
 
     /* ---- Summary ---- */
     section("Summary");
@@ -687,10 +729,10 @@ async function exportPdf(scope){
     const gap = 4, kw = (CW - 2*gap) / 3;
     kpi.forEach(([l,v], i) => {
       const x = M + i * (kw + gap), isBal = i === 2, bad = isBal && v < 0;
-      fc(isBal ? (bad ? C.errc : C.pc) : C.zebra); dc(C.line);
+      fc(isBal ? (bad ? C.errc : C.okc) : (i === 0 ? C.grey : C.zebra)); dc(i === 0 ? C.greyLine : C.line);
       doc.roundedRect(x, y, kw, 22, 3, 3, isBal ? "F" : "FD");
-      f(7.5, true); tc(isBal ? (bad ? C.err : C.dk) : C.mute); doc.text(l.toUpperCase(), x + 4, y + 7);
-      f(12.5, true); tc(isBal ? (bad ? C.err : C.dk) : C.ink); doc.text(rp(v), x + 4, y + 16);
+      f(7.5, true); tc(isBal ? (bad ? C.err : C.okt) : C.mute); doc.text(l.toUpperCase(), x + 4, y + 7);
+      f(12.5, true); tc(isBal ? (bad ? C.err : C.okt) : C.ink); doc.text(rp(v), x + 4, y + 16);
     });
     y += 28;
 
@@ -726,16 +768,19 @@ async function exportPdf(scope){
           let sl = []; if(o.sub){ f(7.5, false); sl = wrap(o.sub, cols[i].w - 4); }
           return {o, tl, sl};
         });
-        const h = Math.max(...prep.map(p => p.tl.length * 4.2 + p.sl.length * 3.5)) + 3.8;
+        const ch = q => q.tl.length * 4.2 + q.sl.length * 3.5; const h = Math.max(...prep.map(ch)) + 5.5;
         if(y + h > BOT){ newPage(); head(); }
         if(r.fill){ fc(r.fill); doc.rect(M, y, CW, h, "F"); } else if(idx % 2 === 1){ fc(C.zebra); doc.rect(M, y, CW, h, "F"); }
         let x = M;
         prep.forEach((p, i) => {
           const col = cols[i], al = col.a || "left";
-          const tx = al === "right" ? x + col.w - 2 : al === "center" ? x + col.w / 2 : x + 2;
+          const tx = al === "right" ? x + col.w - 3 : al === "center" ? x + col.w / 2 : x + 3;
+          const y0 = y + (h - ch(p)) / 2 + 3.4;
           f(8.8, !!r.bold); tc(p.o.color || C.ink);
-          p.tl.forEach((ln,k) => doc.text(ln, tx, y + 4.8 + k * 4.2, {align:al}));
-          if(p.sl.length){ f(7.5, false); tc(C.mute); p.sl.forEach((ln,k) => doc.text(ln, tx, y + 4.8 + p.tl.length * 4.2 + k * 3.5 - 0.3, {align:al})); }
+          const money = col.money && p.tl.length === 1 && /^-?Rp/.test(p.tl[0]) ? p.tl[0] : null;
+          if(money){ doc.text("Rp", x + 3, y0); doc.text(money.replace("Rp", ""), x + col.w - 3, y0, {align:"right"}); }
+          else p.tl.forEach((ln,k) => doc.text(ln, tx, y0 + k * 4.2, {align:al}));
+          if(p.sl.length){ f(7.5, false); tc(C.mute); p.sl.forEach((ln,k) => doc.text(ln, tx, y0 + p.tl.length * 4.2 + k * 3.5 - 0.4, {align:al})); }
           x += col.w;
         });
         dc(C.line); doc.line(M, y + h, M + CW, y + h);
@@ -747,10 +792,10 @@ async function exportPdf(scope){
     section("Per Traveler");
     const list = one ? [one] : T.t;
     const trows = list.map(x => { const p = st.per[x.id];
-      return {cells:[x.name, rp(p.cash), rp(p.food), rp(p.trans), rp(p.total), {t:rp(p.bal), color: p.bal < 0 ? C.err : C.dk}]}; });
-    if(!one && list.length > 1) trows.push({bold:true, fill:C.pc, cells:["TOTAL", rp(st.cash), rp(st.food), rp(st.trans), rp(st.total), {t:rp(st.bal), color: st.bal < 0 ? C.err : C.dk}]});
+      return {cells:[x.name, rp(p.cash), rp(p.food), rp(p.trans), rp(p.total), {t:rp(p.bal), color: p.bal < 0 ? C.err : C.okt}]}; });
+    if(!one && list.length > 1) trows.push({bold:true, fill:C.pc, cells:["TOTAL", rp(st.cash), rp(st.food), rp(st.trans), rp(st.total), {t:rp(st.bal), color: st.bal < 0 ? C.err : C.okt}]});
     if(!trows.length) trows.push({cells:["Belum ada traveler","","","","",""]});
-    table([{l:"Nama",w:52,a:"left"},{l:"Cash",w:26,a:"right"},{l:"Food",w:26,a:"right"},{l:"Transport",w:26,a:"right"},{l:"Total",w:26,a:"right"},{l:"Balance",w:26,a:"right"}], trows);
+    table([{l:"Nama",w:52,a:"left"},{l:"Cash",w:26,a:"right",money:true},{l:"Food",w:26,a:"right",money:true},{l:"Transport",w:26,a:"right",money:true},{l:"Total",w:26,a:"right",money:true},{l:"Balance",w:26,a:"right",money:true}], trows);
 
     section("Rincian Expense");
     const items = [...T.e].sort((a,b) => (a.date||"").localeCompare(b.date||""))
@@ -760,7 +805,7 @@ async function exportPdf(scope){
     const sum = items.reduce((a,r) => a + r.amt, 0);
     if(!drows.length) drows.push({cells:["","","Belum ada expense","",""]});
     else drows.push({bold:true, fill:C.pc, cells:["","","TOTAL","",rp(sum)]});
-    table([{l:"No",w:10,a:"center"},{l:"Tanggal",w:24,a:"center"},{l:"Expense",w:92,a:"left"},{l:"Type",w:22,a:"center"},{l:one?"Porsi":"Jumlah",w:34,a:"right"}], drows);
+    table([{l:"No",w:10,a:"center"},{l:"Tanggal",w:24,a:"center"},{l:"Expense",w:92,a:"left"},{l:"Type",w:22,a:"center"},{l:one?"Porsi":"Jumlah",w:34,a:"right",money:true}], drows);
 
     f(8, false); tc(C.mute);
     const note = (one ? `Kolom Porsi menunjukkan bagian ${one.name} pada tiap expense. ` : "Jumlah adalah harga penuh tiap expense; beban per traveler mengikuti pengaturan Sharing. ")
@@ -772,7 +817,7 @@ async function exportPdf(scope){
     const n = doc.getNumberOfPages();
     for(let i = 1; i <= n; i++){
       doc.setPage(i); dc(C.line); doc.line(M, H - 12, W - M, H - 12); f(8, false); tc(C.mute);
-      doc.text("Dibuat otomatis oleh TraveLoen", M, H - 7.5);
+      doc.text("Dibuat otomatis oleh TraveLoen  |  Spend smart, gift more", M, H - 7.5);
       doc.text(`Halaman ${i} dari ${n}`, W - M, H - 7.5, {align:"right"});
     }
 

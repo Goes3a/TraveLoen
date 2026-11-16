@@ -1,7 +1,7 @@
-﻿// Service worker TraveLoen: aplikasi tetap bisa dibuka tanpa internet.
+// Service worker TraveLoen: aplikasi tetap bisa dibuka tanpa internet.
 // Ubah VERSION setiap kali file aplikasi diperbarui agar cache lama dibuang.
-const VERSION = "traveloen-v5";
-const FILES = ["./", "index.html", "jspdf.umd.min.js", "manifest.webmanifest", "icon-192.png", "icon-512.png"];
+const VERSION = "traveloen-v14";
+const FILES = ["./", "index.html", "jspdf.umd.min.js", "manifest.webmanifest", "icon-192.png", "icon-512.png", "logo.svg", "wordmark.svg", "fonts/Figtree-Regular.ttf", "fonts/Figtree-Bold.ttf"];
 
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));
@@ -23,6 +23,8 @@ self.addEventListener("fetch", e => {
     }).catch(() => caches.match(r).then(m => m || caches.match("index.html")))
   );
 });
+
+
 
 
 
