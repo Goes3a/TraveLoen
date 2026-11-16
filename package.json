@@ -1,0 +1,19 @@
+{
+  "name": "traveloen",
+  "version": "1.0.0",
+  "private": true,
+  "description": "TraveLoen - Rekap keuangan perjalanan dinas",
+  "scripts": {
+    "copy-pdf": "node scripts/copy-pdf.js"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.6.2",
+    "@capacitor/core": "^8.6.2",
+    "@capacitor/filesystem": "^8.1.5",
+    "@capacitor/share": "^8.0.3",
+    "jspdf": "^4.2.1"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.6.2"
+  }
+}

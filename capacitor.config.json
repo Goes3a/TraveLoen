@@ -1,0 +1,6 @@
+﻿{
+  "appId": "com.traveloen.app",
+  "appName": "TraveLoen",
+  "webDir": "www",
+  "android": { "allowMixedContent": false }
+}

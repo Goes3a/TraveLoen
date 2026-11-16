@@ -1,0 +1,546 @@
+﻿<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f766e">
+<title>TraveLoen</title>
+<style>
+:root{
+  --bg:#f4f6f5;--card:#fff;--ink:#16211f;--mute:#5d6b68;--line:#dfe6e4;
+  --brand:#0f766e;--brand-ink:#fff;--soft:#e3f1ef;--neg:#c0392b;--pos:#0f766e;--warn:#b45309;
+}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#0e1514;--card:#17201f;--ink:#e8efed;--mute:#9aaaa6;--line:#2a3735;
+  --brand:#2dd4bf;--brand-ink:#04211e;--soft:#16302d;--neg:#f28b82;--pos:#5eead4;--warn:#fbbf24}
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  padding:calc(env(safe-area-inset-top) + 0px) 0 calc(72px + env(safe-area-inset-bottom))}
+header{position:sticky;top:0;z-index:5;background:var(--brand);color:var(--brand-ink);
+  padding:calc(env(safe-area-inset-top) + 10px) 16px 10px}
+header h1{margin:0 0 8px;font-size:18px;letter-spacing:.2px}
+.hrow{display:flex;gap:8px}
+.hrow label{flex:1;font-size:11px;opacity:.85;display:block}
+.hrow select{width:100%;margin-top:2px}
+main{padding:12px 16px;max-width:720px;margin:0 auto}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px}
+.card h2{margin:0 0 10px;font-size:15px}
+.mute{color:var(--mute);font-size:13px}
+input,select,textarea,button{font:inherit;color:inherit}
+input,select,textarea{width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);margin-top:4px}
+header select{background:rgba(255,255,255,.18);color:var(--brand-ink);border-color:rgba(255,255,255,.35)}
+header select option{color:#111}
+label.f{display:block;margin-bottom:10px;font-size:13px;color:var(--mute)}
+button{border:0;border-radius:8px;padding:10px 14px;cursor:pointer;background:var(--soft);color:var(--ink)}
+button.p{background:var(--brand);color:var(--brand-ink);font-weight:600}
+button.d{background:transparent;color:var(--neg);border:1px solid var(--neg)}
+button.s{padding:6px 10px;font-size:13px}
+button.w{width:100%}
+.row{display:flex;gap:8px;align-items:center}
+.row>*{flex:1}
+.between{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.stat{background:var(--soft);border-radius:10px;padding:10px}
+.stat b{display:block;font-size:14px;word-break:break-word}
+.stat span{font-size:11px;color:var(--mute)}
+.neg{color:var(--neg)}.pos{color:var(--pos)}
+.bar{height:10px;border-radius:5px;background:var(--line);overflow:hidden;margin:4px 0 10px}
+.bar i{display:block;height:100%;background:var(--brand)}
+.tw{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{padding:7px 6px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+th{color:var(--mute);font-weight:600;font-size:12px}
+.item{padding:10px 0;border-bottom:1px solid var(--line)}
+.item:last-child{border-bottom:0}
+.tag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:99px;background:var(--soft);margin-left:4px}
+.seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin:4px 0 10px}
+.seg button{flex:1;border-radius:0;background:transparent;padding:8px}
+.seg button.on{background:var(--brand);color:var(--brand-ink);font-weight:600}
+.shr{display:flex;align-items:center;gap:8px;padding:6px 0}
+.shr input[type=checkbox]{accent-color:var(--brand);width:20px;height:20px;margin:0;flex:none}
+.shr span{flex:1}
+.shr input[type=number]{width:110px;margin:0;padding:6px 8px;text-align:right}
+.chk{font-size:12px;margin-top:4px}
+nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:var(--card);border-top:1px solid var(--line);
+  padding-bottom:env(safe-area-inset-bottom);z-index:6}
+nav button{flex:1;border-radius:0;background:transparent;padding:13px 4px;font-size:13px;color:var(--mute)}
+nav button.on{color:var(--brand);font-weight:700;box-shadow:inset 0 3px 0 var(--brand)}
+nav button:disabled{opacity:.35}
+#toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom));transform:translateX(-50%);
+  background:#222;color:#fff;padding:9px 16px;border-radius:99px;font-size:13px;opacity:0;pointer-events:none;
+  transition:opacity .2s;z-index:20;max-width:88%;text-align:center}
+#toast.show{opacity:1}
+.empty{text-align:center;color:var(--mute);padding:18px 6px}
+</style>
+</head>
+<body>
+<header>
+  <h1>TraveLoen</h1>
+  <div class="hrow">
+    <label>Agenda<select id="selTrip"></select></label>
+    <label>Masuk sebagai<select id="selMe"></select></label>
+  </div>
+</header>
+<main id="main"></main>
+<nav id="nav">
+  <button data-t="dash">Dashboard</button>
+  <button data-t="agenda">Agenda</button>
+  <button data-t="trav">Traveler</button>
+  <button data-t="exp">+ Expense</button>
+</nav>
+<div id="toast"></div>
+<script src="jspdf.umd.min.js"></script>
+<script>
+"use strict";
+/* ============ State & util ============ */
+const KEY = "rkd";
+let S = load();
+let tab = "dash";
+let editingId = null;      // id expense yang sedang diedit
+let draft = null;          // draft form expense
+
+function load(){
+  try{
+    const o = JSON.parse(localStorage.getItem(KEY) || "null");
+    if(o && Array.isArray(o.trips)) return o;
+  }catch(e){}
+  return {trips:[], cur:null, me:null};
+}
+function save(){
+  try{ localStorage.setItem(KEY, JSON.stringify(S)); }
+  catch(e){ toast("Gagal menyimpan data ke perangkat"); }
+}
+const $ = s => document.querySelector(s);
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const rp = n => (n < 0 ? "-" : "") + "Rp" + Math.abs(Math.round(n)).toLocaleString("id-ID");
+const dmy = iso => { if(!iso) return "-"; const [y,m,d] = iso.split("-"); return `${d}/${m}/${y}`; };
+const today = () => { const d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset()*60000).toISOString().slice(0,10); };
+const days = (a,b) => { const p = s => Date.UTC(...s.split("-").map((v,i)=>i==1?v-1:+v)); return Math.round((p(b)-p(a))/86400000); };
+function toast(msg){
+  const t = $("#toast"); t.textContent = msg; t.classList.add("show");
+  clearTimeout(toast._t); toast._t = setTimeout(()=>t.classList.remove("show"), 2400);
+}
+const trip = () => S.trips.find(t => t.id === S.cur) || null;
+const tname = (T,id) => (T.t.find(x=>x.id===id)||{name:"(dihapus)"}).name;
+const me = () => { const T = trip(); return T ? T.t.find(x=>x.id===S.me) || null : null; };
+function isAdmin(){ const T = trip(); if(!T || !T.t.length) return true; const m = me(); return !!m && m.role === "Admin"; }
+
+/* ============ Perhitungan ============ */
+// Porsi tiap traveler pada satu expense -> {idTraveler: rupiah}. Sisa pembulatan masuk ke traveler pertama.
+function portions(e){
+  const ids = (e.share && e.share.length) ? e.share : [e.source];
+  const price = Math.round(e.price), out = {};
+  const mode = e.mode || "equal";
+  if(mode === "amount" && e.alloc){
+    ids.forEach(i => out[i] = Math.round(+e.alloc[i] || 0));
+  }else if(mode === "percent" && e.alloc){
+    let used = 0;
+    ids.forEach(i => { const v = Math.floor(price * (+e.alloc[i] || 0) / 100); out[i] = v; used += v; });
+    out[ids[0]] += price - used;
+  }else{
+    const b = Math.floor(price / ids.length);
+    ids.forEach(i => out[i] = b);
+    out[ids[0]] += price - b * ids.length;
+  }
+  return out;
+}
+function stats(T){
+  const per = {};
+  T.t.forEach(x => per[x.id] = {cash:+x.cash||0, food:0, trans:0});
+  let food = 0, trans = 0;
+  T.e.forEach(e => {
+    const k = e.type === "Food" ? "food" : "trans";
+    if(k === "food") food += e.price; else trans += e.price;
+    const p = portions(e);
+    for(const id in p) if(per[id]) per[id][k] += p[id];
+  });
+  const cash = T.t.reduce((a,x)=>a+(+x.cash||0),0);
+  const total = food + trans;
+  for(const id in per){ per[id].total = per[id].food + per[id].trans; per[id].bal = per[id].cash - per[id].total; }
+  return {per, cash, food, trans, total, bal: cash - total};
+}
+
+/* ============ Header & navigasi ============ */
+function renderHeader(){
+  const st = $("#selTrip"), sm = $("#selMe"), T = trip();
+  st.innerHTML = S.trips.length ? S.trips.map(t=>`<option value="${t.id}"${t.id===S.cur?" selected":""}>${esc(t.agenda)}</option>`).join("") : `<option>(belum ada agenda)</option>`;
+  st.disabled = !S.trips.length;
+  if(T && T.t.length){
+    if(!T.t.some(x=>x.id===S.me)) S.me = (T.t.find(x=>x.role==="Admin")||T.t[0]).id;
+    sm.innerHTML = T.t.map(x=>`<option value="${x.id}"${x.id===S.me?" selected":""}>${esc(x.name)} (${x.role})</option>`).join("");
+    sm.disabled = false;
+  }else{ sm.innerHTML = `<option>-</option>`; sm.disabled = true; }
+  document.querySelectorAll("nav button").forEach(b=>{
+    b.classList.toggle("on", b.dataset.t === tab);
+    b.disabled = !S.trips.length && b.dataset.t !== "agenda";
+  });
+}
+$("#selTrip").onchange = e => { S.cur = e.target.value; S.me = null; editingId = null; draft = null; save(); render(); };
+$("#selMe").onchange = e => { S.me = e.target.value; editingId = null; draft = null; save(); render(); };
+document.querySelectorAll("nav button").forEach(b => b.onclick = () => go(b.dataset.t));
+function go(t){ tab = t; if(t !== "exp"){ editingId = null; draft = null; } render(); window.scrollTo(0,0); }
+
+function render(){
+  if(!S.trips.length) tab = "agenda";
+  else if(!S.cur || !trip()) S.cur = S.trips[0].id;
+  renderHeader();
+  ({dash:vDash, agenda:vAgenda, trav:vTrav, exp:vExp})[tab]();
+}
+
+/* ============ Agenda ============ */
+function vAgenda(){
+  const m = $("#main"), canAdd = !S.trips.length || isAdmin();
+  let h = "";
+  if(!S.trips.length) h += `<div class="card"><b>Mulai dari sini.</b><div class="mute">Isi data agenda perjalanan dinas dulu. Setelah itu tambahkan Traveler, lalu catat Expense.</div></div>`;
+  if(canAdd) h += `<div class="card"><h2>Tambah Agenda</h2>
+    <label class="f">Agenda<input id="aName" placeholder="Nama perjalanan dinas"></label>
+    <div class="row"><label class="f">Start Date<input type="date" id="aStart"></label>
+    <label class="f">End Date<input type="date" id="aEnd"></label></div>
+    <div class="mute" id="aDur" style="margin-bottom:10px">Duration: -</div>
+    <label class="f">Location<input id="aLoc" placeholder="Lokasi"></label>
+    <button class="p w" id="aSave">Simpan Agenda</button></div>`;
+  h += `<div class="card"><h2>Daftar Agenda</h2>` + (S.trips.length ? S.trips.map(t=>{
+    const tot = t.e.reduce((a,x)=>a+x.price,0);
+    return `<div class="item between"><div><b>${esc(t.agenda)}</b>${t.id===S.cur?'<span class="tag">aktif</span>':""}
+      <div class="mute">${dmy(t.start)} - ${dmy(t.end)} (${days(t.start,t.end)} hari) Â· ${esc(t.location)}</div>
+      <div class="mute">${t.t.length} traveler Â· ${rp(tot)}</div></div>
+      ${t.id===S.cur?"":`<button class="s" data-open="${t.id}" style="flex:none">Buka</button>`}</div>`;
+  }).join("") : `<div class="empty">Belum ada agenda</div>`) + `</div>`;
+  m.innerHTML = h;
+  m.querySelectorAll("[data-open]").forEach(b=>b.onclick=()=>{ S.cur=b.dataset.open; S.me=null; save(); go("dash"); });
+  if(canAdd){
+    const upd = () => { const a=$("#aStart").value, b=$("#aEnd").value; $("#aDur").textContent = "Duration: " + (a&&b&&b>=a ? days(a,b)+" hari" : "-"); };
+    $("#aStart").onchange = () => { if($("#aEnd").value < $("#aStart").value) $("#aEnd").value = $("#aStart").value; upd(); };
+    $("#aEnd").onchange = upd;
+    $("#aSave").onclick = () => {
+      const agenda=$("#aName").value.trim(), start=$("#aStart").value, end=$("#aEnd").value, location=$("#aLoc").value.trim();
+      if(!agenda||!start||!end) return toast("Agenda, Start Date, dan End Date wajib diisi");
+      if(end < start) return toast("End Date tidak boleh sebelum Start Date");
+      const t = {id:uid(), agenda, start, end, location, t:[], e:[]};
+      S.trips.push(t); S.cur = t.id; S.me = null; save(); toast("Agenda disimpan"); go("trav");
+    };
+  }
+}
+
+/* ============ Traveler ============ */
+function vTrav(){
+  const T = trip(), m = $("#main"), adm = isAdmin();
+  let h = "";
+  if(adm) h += `<div class="card"><h2>Tambah Traveler</h2>
+    <label class="f">Nama<input id="nName" placeholder="Nama peserta"></label>
+    <div class="row"><label class="f">Role<select id="nRole" ${T.t.length?"":"disabled"}>
+      <option>User</option><option ${T.t.length?"":"selected"}>Admin</option></select></label>
+    <label class="f">Initial Cash (Rp)<input id="nCash" type="number" inputmode="numeric" min="0" placeholder="0"></label></div>
+    ${T.t.length?"":`<div class="mute" style="margin-bottom:10px">Traveler pertama otomatis menjadi Admin.</div>`}
+    <button class="p w" id="nSave">Tambah</button></div>`;
+  h += `<div class="card"><h2>Traveler Â· ${esc(T.agenda)}</h2>` + (T.t.length ? T.t.map(x=>`
+    <div class="item between"><div><b>${esc(x.name)}</b><span class="tag">${x.role}</span>
+      <div class="mute">Initial Cash ${rp(x.cash)}</div></div>
+      ${adm?`<div class="row" style="flex:none"><button class="s" data-ec="${x.id}">Edit Cash</button><button class="s d" data-del="${x.id}">Hapus</button></div>`:""}</div>`).join("")
+    : `<div class="empty">Belum ada traveler</div>`) + `</div>`;
+  m.innerHTML = h;
+  if(adm){
+    if($("#nSave")) $("#nSave").onclick = () => {
+      const name = $("#nName").value.trim(); if(!name) return toast("Nama wajib diisi");
+      const cash = Math.max(0, Math.round(+$("#nCash").value || 0));
+      const role = T.t.length ? $("#nRole").value : "Admin";
+      const x = {id:uid(), name, role, cash}; T.t.push(x);
+      if(!S.me) S.me = x.id;
+      save(); toast("Traveler ditambahkan"); render();
+    };
+    m.querySelectorAll("[data-ec]").forEach(b=>b.onclick=()=>{
+      const x = T.t.find(z=>z.id===b.dataset.ec);
+      const v = prompt("Initial Cash untuk " + x.name + " (Rp):", x.cash);
+      if(v === null) return;
+      const n = Math.round(+v);
+      if(isNaN(n) || n < 0) return toast("Nominal tidak valid");
+      x.cash = n; save(); render();
+    });
+    m.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{
+      const id = b.dataset.del, x = T.t.find(z=>z.id===id);
+      const used = T.e.some(e => e.source === id || (e.share||[]).includes(id));
+      if(used) return alert(x.name + " masih menjadi Source atau penerima Sharing pada suatu expense, jadi tidak bisa dihapus.");
+      if(T.t.length > 1 && x.role === "Admin" && T.t.filter(z=>z.role==="Admin").length === 1)
+        return alert("Tidak bisa menghapus satu-satunya Admin.");
+      if(!confirm("Hapus traveler " + x.name + "?")) return;
+      T.t = T.t.filter(z=>z.id!==id); save(); render();
+    });
+  }
+}
+
+/* ============ Expense ============ */
+function newDraft(T){
+  const m = me(), adm = isAdmin();
+  return {name:"", type:"Food", price:"", source: adm ? (m ? m.id : (T.t[0]||{}).id) : m.id,
+    mode:"equal", sel:Object.fromEntries(T.t.map(x=>[x.id,true])), alloc:{}, note:"", date:today()};
+}
+function draftFrom(e){
+  const T = trip(), ids = (e.share && e.share.length) ? e.share : [e.source];
+  return {name:e.name, type:e.type, price:e.price, source:e.source, mode:e.mode||"equal",
+    sel:Object.fromEntries(T.t.map(x=>[x.id, ids.includes(x.id)])), alloc:Object.assign({}, e.alloc||{}),
+    note:e.note||"", date:e.date||today()};
+}
+function canEdit(e){ return isAdmin() || e.source === S.me; }
+
+function vExp(){
+  const T = trip(), m = $("#main");
+  if(!T.t.length){
+    m.innerHTML = `<div class="card empty">Tambahkan Traveler terlebih dahulu sebelum mencatat Expense.<br><br><button class="p" id="gt">Ke Traveler</button></div>`;
+    $("#gt").onclick = () => go("trav"); return;
+  }
+  const adm = isAdmin();
+  if(!draft) draft = newDraft(T);
+  const D = draft;
+  m.innerHTML = `<div class="card"><h2>${editingId?"Edit Expense":"Tambah Expense"}</h2>
+    <label class="f">Expense<input id="xName" value="${esc(D.name)}" placeholder="Nama pengeluaran"></label>
+    <div class="row"><label class="f">Type<select id="xType"><option${D.type==="Food"?" selected":""}>Food</option><option${D.type==="Transport"?" selected":""}>Transport</option></select></label>
+    <label class="f">Price (Rp)<input id="xPrice" type="number" inputmode="numeric" min="0" value="${D.price}" placeholder="0"></label></div>
+    <div class="row"><label class="f">Source (pembayar)<select id="xSrc" ${adm?"":"disabled"}>
+      ${T.t.map(x=>`<option value="${x.id}"${x.id===D.source?" selected":""}>${esc(x.name)}</option>`).join("")}</select></label>
+    <label class="f">Tanggal<input type="date" id="xDate" value="${D.date}"></label></div>
+    <div class="f" style="margin-bottom:4px">Sharing (yang menanggung biaya)</div>
+    <div class="seg" id="xMode">
+      <button data-m="equal" class="${D.mode==="equal"?"on":""}">Rata</button>
+      <button data-m="percent" class="${D.mode==="percent"?"on":""}">Persen</button>
+      <button data-m="amount" class="${D.mode==="amount"?"on":""}">Nominal</button></div>
+    <div id="shareBox"></div>
+    <label class="f" style="margin-top:10px">Note<input id="xNote" value="${esc(D.note)}" placeholder="Opsional"></label>
+    <div class="row"><button class="p" id="xSave">${editingId?"Simpan Perubahan":"Simpan Expense"}</button>
+    ${editingId?`<button id="xCancel">Batal</button>`:""}</div></div>`;
+  $("#xMode").querySelectorAll("button").forEach(b=>b.onclick=()=>{ readForm(); D.mode=b.dataset.m; vExp(); });
+  $("#xPrice").oninput = () => { readForm(); renderShare(); };
+  $("#xSave").onclick = saveExpense;
+  if(editingId) $("#xCancel").onclick = () => go("dash");
+  renderShare();
+}
+function readForm(){
+  const D = draft; if(!D) return;
+  D.name = $("#xName").value; D.type = $("#xType").value; D.price = $("#xPrice").value;
+  D.source = $("#xSrc").value; D.date = $("#xDate").value; D.note = $("#xNote").value;
+  document.querySelectorAll("#shareBox .shr").forEach(r=>{
+    const id = r.dataset.id; D.sel[id] = r.querySelector("input[type=checkbox]").checked;
+    const n = r.querySelector("input[type=number]"); if(n) D.alloc[id] = n.value;
+  });
+}
+function renderShare(){
+  const T = trip(), D = draft, box = $("#shareBox"), price = Math.round(+D.price || 0);
+  box.innerHTML = T.t.map(x=>{
+    const on = D.sel[x.id];
+    let inp = "";
+    if(D.mode !== "equal" && on) inp = `<input type="number" inputmode="decimal" min="0" placeholder="${D.mode==="percent"?"%":"Rp"}" value="${D.alloc[x.id]==null?"":D.alloc[x.id]}">`;
+    return `<div class="shr" data-id="${x.id}"><input type="checkbox" ${on?"checked":""}><span>${esc(x.name)}</span>${inp}</div>`;
+  }).join("") + `<div class="chk" id="shChk"></div>`;
+  box.querySelectorAll(".shr").forEach(r=>{
+    r.querySelector("input[type=checkbox]").onchange = () => { readForm(); renderShare(); };
+    const n = r.querySelector("input[type=number]"); if(n) n.oninput = () => { readForm(); updateChk(); };
+  });
+  updateChk();
+}
+function shareState(){
+  const D = draft, T = trip(), ids = T.t.filter(x=>D.sel[x.id]).map(x=>x.id), price = Math.round(+D.price || 0);
+  if(!ids.length) return {ok:false, msg:"Pilih minimal satu traveler untuk Sharing.", ids};
+  if(D.mode === "equal") return {ok:true, ids, msg: price ? `Dibagi rata: sekitar ${rp(price/ids.length)} per orang.` : ""};
+  const sum = ids.reduce((a,i)=>a + (+D.alloc[i] || 0), 0);
+  if(D.mode === "percent"){
+    const ok = Math.abs(sum - 100) < 0.001;
+    return {ok, ids, msg: ok ? "Total 100%." : `Total ${+sum.toFixed(2)}%. Harus 100% (${sum<100?"kurang ":"lebih "}${+Math.abs(100-sum).toFixed(2)}%).`};
+  }
+  const ok = Math.round(sum) === price && price > 0;
+  const diff = price - Math.round(sum);
+  return {ok, ids, msg: ok ? "Total sesuai Price." : `Total ${rp(sum)} dari ${rp(price)} (${diff>0?"kurang ":"lebih "}${rp(Math.abs(diff))}).`};
+}
+function updateChk(){ const s = shareState(), el = $("#shChk"); el.textContent = s.msg; el.className = "chk " + (s.ok ? "pos" : "neg"); }
+
+function saveExpense(){
+  readForm();
+  const T = trip(), D = draft, price = Math.round(+D.price || 0), name = D.name.trim();
+  if(!name) return toast("Nama expense wajib diisi");
+  if(price <= 0) return toast("Price harus lebih dari 0");
+  if(!D.date) return toast("Tanggal wajib diisi");
+  const s = shareState();
+  if(!s.ok) return toast(s.msg);
+  const source = isAdmin() ? D.source : S.me;
+  const rec = {name, type:D.type, price, source, share:s.ids, mode:D.mode, note:D.note.trim(), date:D.date};
+  if(D.mode !== "equal"){ rec.alloc = {}; s.ids.forEach(i => rec.alloc[i] = +D.alloc[i] || 0); }
+  if(editingId){
+    const e = T.e.find(z=>z.id===editingId);
+    if(!e || !canEdit(e)) return toast("Anda tidak berhak mengedit expense ini");
+    Object.keys(e).forEach(k => { if(k !== "id") delete e[k]; });
+    Object.assign(e, rec);
+    toast("Expense diperbarui");
+  }else{
+    T.e.push(Object.assign({id:uid()}, rec)); toast("Expense disimpan");
+  }
+  save(); editingId = null; draft = null; go("dash");
+}
+
+/* ============ Dashboard ============ */
+function sharingText(e, T){
+  const p = portions(e), ids = Object.keys(p);
+  if(ids.length === T.t.length && (e.mode||"equal") === "equal") return "Semua (rata)";
+  const lbl = {equal:"rata", percent:"persen", amount:"nominal"}[e.mode||"equal"];
+  return ids.map(i => `${tname(T,i)} ${rp(p[i])}`).join(", ") + ` (${lbl})`;
+}
+function vDash(){
+  const T = trip(), m = $("#main"), st = stats(T);
+  const pct = v => st.total ? Math.round(v / st.total * 100) : 0;
+  let h = `<div class="card"><div class="between"><b>${esc(T.agenda)}</b></div>
+    <div class="mute">${dmy(T.start)} - ${dmy(T.end)} (${days(T.start,T.end)} hari) Â· ${esc(T.location)}</div></div>
+  <div class="card"><h2>Ringkasan</h2><div class="grid3">
+    <div class="stat"><span>Total Initial Cash</span><b>${rp(st.cash)}</b></div>
+    <div class="stat"><span>Total Expenses</span><b>${rp(st.total)}</b></div>
+    <div class="stat"><span>Balance Overall</span><b class="${st.bal<0?"neg":"pos"}">${rp(st.bal)}</b></div></div></div>
+  <div class="card"><h2>Breakdown Expense</h2>
+    <div class="between"><span>Food</span><b>${rp(st.food)} Â· ${pct(st.food)}%</b></div><div class="bar"><i style="width:${pct(st.food)}%"></i></div>
+    <div class="between"><span>Transport</span><b>${rp(st.trans)} Â· ${pct(st.trans)}%</b></div><div class="bar"><i style="width:${pct(st.trans)}%"></i></div></div>
+  <div class="card"><h2>Per Traveler</h2>` + (T.t.length ? `<div class="tw"><table><tr><th>Nama</th><th>Cash</th><th>Food</th><th>Transport</th><th>Total</th><th>Balance</th></tr>` +
+    T.t.map(x=>{const p=st.per[x.id];return `<tr><td>${esc(x.name)}</td><td>${rp(p.cash)}</td><td>${rp(p.food)}</td><td>${rp(p.trans)}</td><td>${rp(p.total)}</td><td class="${p.bal<0?"neg":"pos"}"><b>${rp(p.bal)}</b></td></tr>`}).join("") +
+    `</table></div>` : `<div class="empty">Belum ada traveler</div>`) + `</div>
+  <div class="card"><h2>Riwayat Expense</h2>` + (T.e.length ? [...T.e].sort((a,b)=>(b.date||"").localeCompare(a.date||"")).map(e=>`
+    <div class="item"><div class="between"><div><b>${esc(e.name)}</b><span class="tag">${e.type}</span></div><b>${rp(e.price)}</b></div>
+      <div class="mute">${dmy(e.date)} Â· Source: ${esc(tname(T,e.source))}</div>
+      <div class="mute">Sharing: ${esc(sharingText(e,T))}</div>
+      ${e.note?`<div class="mute">Note: ${esc(e.note)}</div>`:""}
+      ${canEdit(e)?`<div class="row" style="margin-top:6px;justify-content:flex-end"><button class="s" data-ed="${e.id}" style="flex:none">Edit</button>${isAdmin()?`<button class="s d" data-rm="${e.id}" style="flex:none">Hapus</button>`:""}</div>`:""}</div>`).join("")
+    : `<div class="empty">Belum ada expense</div>`) + `</div>
+  <div class="card"><h2>Export Invoice (PDF)</h2>
+    <label class="f">Cakupan<select id="pScope"><option value="all">Semua traveler</option>${T.t.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join("")}</select></label>
+    <button class="p w" id="pBtn">Download PDF</button></div>
+  <div class="card"><h2>Cadangan Data</h2>
+    <div class="mute" style="margin-bottom:10px">Data tersimpan di HP ini saja dan hilang bila aplikasi di-uninstall. Buat cadangan secara berkala.</div>
+    <div class="row"><button id="bBk">Simpan Cadangan</button><button id="bRs">Pulihkan</button></div>
+    <input type="file" id="bFile" accept=".json,application/json" hidden></div>`;
+  m.innerHTML = h;
+  m.querySelectorAll("[data-ed]").forEach(b=>b.onclick=()=>{
+    const e = T.e.find(z=>z.id===b.dataset.ed); editingId = e.id; draft = draftFrom(e); tab = "exp"; render(); window.scrollTo(0,0);
+  });
+  m.querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{
+    const e = T.e.find(z=>z.id===b.dataset.rm);
+    if(confirm(`Hapus expense "${e.name}" (${rp(e.price)})?`)){ T.e = T.e.filter(z=>z.id!==e.id); save(); render(); }
+  });
+  $("#pBtn").onclick = () => exportPdf($("#pScope").value);
+  $("#bBk").onclick = backup;
+  $("#bRs").onclick = () => $("#bFile").click();
+  $("#bFile").onchange = restore;
+}
+
+/* ============ File: simpan / bagikan ============ */
+const native = () => !!(window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform());
+async function saveFile(name, mime, {base64, text}){
+  if(native()){
+    const {Filesystem, Share} = Capacitor.Plugins;
+    const opts = {path:name, directory:"CACHE"};
+    if(base64) opts.data = base64; else { opts.data = text; opts.encoding = "utf8"; }
+    const r = await Filesystem.writeFile(opts);
+    await Share.share({title:name, url:r.uri, dialogTitle:"Simpan atau bagikan " + name});
+  }else{
+    const blob = base64
+      ? new Blob([Uint8Array.from(atob(base64), c=>c.charCodeAt(0))], {type:mime})
+      : new Blob([text], {type:mime});
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name;
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
+  }
+}
+const slug = s => s.replace(/[^\w\-]+/g,"_").replace(/^_+|_+$/g,"").slice(0,40) || "file";
+
+async function backup(){
+  try{
+    await saveFile(`TraveLoen_backup_${today()}.json`, "application/json", {text: JSON.stringify(S, null, 1)});
+    toast("Cadangan siap");
+  }catch(e){ if(!/cancel/i.test(String(e && e.message))) toast("Gagal membuat cadangan"); }
+}
+function restore(ev){
+  const f = ev.target.files[0]; ev.target.value = ""; if(!f) return;
+  const r = new FileReader();
+  r.onload = () => {
+    try{
+      const o = JSON.parse(r.result);
+      if(!o || !Array.isArray(o.trips) || o.trips.some(t => !t || !Array.isArray(t.t) || !Array.isArray(t.e))) throw 0;
+      if(!confirm(`Pulihkan ${o.trips.length} agenda dari cadangan? Data saat ini akan DIGANTI.`)) return;
+      S = {trips:o.trips, cur:o.cur, me:o.me}; editingId = null; draft = null; save(); toast("Data dipulihkan"); go("dash");
+    }catch(e){ alert("File cadangan tidak valid."); }
+  };
+  r.readAsText(f);
+}
+
+/* ============ PDF ============ */
+async function exportPdf(scope){
+  try{
+    const T = trip(), st = stats(T), one = scope !== "all" ? T.t.find(x=>x.id===scope) : null;
+    if(!window.jspdf) return toast("Library PDF belum termuat");
+    const doc = new window.jspdf.jsPDF({unit:"mm", format:"a4"});
+    const W = 210, M = 14, CW = W - 2*M; let y = M;
+    const need = h => { if(y + h > 284){ doc.addPage(); y = M; } };
+    const txt = (s,x,yy,o) => doc.text(String(s), x, yy, o);
+    function table(cols, rows, opt={}){
+      const draw = (cells, head, bold) => {
+        doc.setFont("helvetica", head||bold ? "bold" : "normal"); doc.setFontSize(9);
+        const lines = cells.map((c,i)=>doc.splitTextToSize(String(c), cols[i].w - 3));
+        const h = Math.max(...lines.map(l=>l.length)) * 4.4 + 3;
+        need(h);
+        if(head){ doc.setFillColor(15,118,110); doc.rect(M, y, CW, h, "F"); doc.setTextColor(255); }
+        else doc.setTextColor(30);
+        let x = M;
+        cells.forEach((c,i)=>{
+          const col = cols[i], tx = col.r ? x + col.w - 1.5 : x + 1.5;
+          lines[i].forEach((ln,k)=> txt(ln, tx, y + 5 + k*4.4 - (k?0:0), {align: col.r ? "right" : "left"}));
+          x += col.w;
+        });
+        if(!head){ doc.setDrawColor(210); doc.line(M, y+h, M+CW, y+h); }
+        y += h;
+      };
+      draw(cols.map(c=>c.l), true);
+      rows.forEach(r => draw(r, false, r._bold));
+      doc.setTextColor(30);
+    }
+    doc.setFont("helvetica","bold"); doc.setFontSize(18); doc.setTextColor(15,118,110);
+    txt("INVOICE REKAP KEUANGAN PERJALANAN DINAS", M, y+5); y += 11;
+    doc.setTextColor(30); doc.setFontSize(10);
+    const info = [["Agenda", T.agenda], ["Periode", `${dmy(T.start)} - ${dmy(T.end)} (${days(T.start,T.end)} hari)`],
+      ["Lokasi", T.location || "-"], ["Dicetak", dmy(today())], ["Cakupan", one ? one.name : "Semua traveler"]];
+    info.forEach(([k,v])=>{ doc.setFont("helvetica","bold"); txt(k, M, y); doc.setFont("helvetica","normal"); txt(": " + v, M+24, y); y += 5.5; });
+    y += 3;
+
+    // Ringkasan
+    const sm = one ? (()=>{const p=st.per[one.id]; return [["Initial Cash",p.cash],["Total Expenses (porsi)",p.total],["Food",p.food],["Transport",p.trans],["Balance",p.bal]]})()
+      : [["Total Initial Cash",st.cash],["Total Expenses",st.total],["Food",st.food],["Transport",st.trans],["Balance Overall",st.bal]];
+    doc.setFont("helvetica","bold"); doc.setFontSize(12); txt("Ringkasan", M, y); y += 5;
+    table([{l:"Keterangan",w:CW*0.6},{l:"Jumlah",w:CW*0.4,r:1}], sm.map(([k,v])=>[k, rp(v)]));
+    y += 6;
+
+    // Per traveler
+    const list = one ? [one] : T.t;
+    need(20); doc.setFont("helvetica","bold"); doc.setFontSize(12); txt("Per Traveler", M, y); y += 5;
+    const w = CW/6;
+    table([{l:"Nama",w:CW-5*w+8},{l:"Cash",w:w-2,r:1},{l:"Food",w:w-2,r:1},{l:"Transport",w:w-2,r:1},{l:"Total",w:w-2,r:1},{l:"Balance",w:w,r:1}],
+      list.map(x=>{const p=st.per[x.id]; return [x.name, rp(p.cash), rp(p.food), rp(p.trans), rp(p.total), rp(p.bal)]}));
+    y += 6;
+
+    // Rincian
+    const items = [...T.e].sort((a,b)=>(a.date||"").localeCompare(b.date||""))
+      .map(e => ({e, amt: one ? (portions(e)[one.id] || 0) : e.price}))
+      .filter(r => !one || r.amt > 0);
+    need(20); doc.setFont("helvetica","bold"); doc.setFontSize(12); txt("Rincian Expense", M, y); y += 5;
+    const rows = items.map((r,i)=>[i+1, dmy(r.e.date), r.e.name + (r.e.note ? `\n(${r.e.note})` : ""), r.e.type, tname(T,r.e.source), rp(r.amt)]);
+    const tot = items.reduce((a,r)=>a+r.amt,0);
+    const tr = ["", "", "TOTAL", "", "", rp(tot)]; tr._bold = true; rows.push(tr);
+    table([{l:"No",w:10},{l:"Tanggal",w:24},{l:"Expense",w:CW-10-24-22-28-30},{l:"Type",w:22},{l:"Source",w:28},{l:one?"Porsi":"Jumlah",w:30,r:1}], rows);
+
+    const name = `Invoice_${slug(T.agenda)}_${one ? slug(one.name) : "semua"}.pdf`;
+    const b64 = doc.output("datauristring").split(",")[1];
+    await saveFile(name, "application/pdf", {base64: b64});
+    toast("PDF siap");
+  }catch(e){
+    if(!/cancel|abort/i.test(String(e && e.message))){ console.error(e); toast("Gagal membuat PDF"); }
+  }
+}
+
+render();
+</script>
+</body>
+</html>
+
