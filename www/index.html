@@ -709,47 +709,7 @@ async function exportPdf(scope){
     doc.text(`Transport  ${rp(tr)}  (${pc(tr,tot)}%)`, M + CW/2 + 5, y);
     y += 10;
 
-    /* ---- "Data berbicara" ---- */
-    const paid = {}; T.t.forEach(x => paid[x.id] = 0);
-    T.e.forEach(e => { if(paid[e.source] != null) paid[e.source] += e.price; });
-    const ins = [];
-    const nDays = Math.max(1, days(T.start, T.end));
-    if(!T.e.length){
-      ins.push(["Belum ada data", "Belum ada expense yang tercatat pada agenda ini.", "info"]);
-    }else if(one){
-      const p = p1, diff = paid[one.id] - p.total;
-      ins.push(["Beban", p.total ? `${one.name} menanggung ${rp(p.total)}, atau ${pc(p.total, st.total)}% dari total pengeluaran grup sebesar ${rp(st.total)}.` : `${one.name} belum menanggung pengeluaran apa pun.`, "info"]);
-      if(p.total) ins.push(["Komposisi", `Dari porsi itu, Food ${pc(p.food,p.total)}% (${rp(p.food)}) dan Transport ${pc(p.trans,p.total)}% (${rp(p.trans)}).`, "info"]);
-      if(p.cash || p.total) ins.push(["Saldo", p.bal < 0 ? `Initial Cash ${rp(p.cash)} tidak cukup menutup porsi beban. Defisit ${rp(-p.bal)}.` : `Initial Cash ${rp(p.cash)} masih mencukupi. Saldo tersisa ${rp(p.bal)}.`, p.bal < 0 ? "bad" : "ok"]);
-      let best = null; T.e.forEach(e => { const v = portions(e)[one.id] || 0; if(v > 0 && (!best || v > best.v)) best = {e, v}; });
-      if(best) ins.push(["Porsi terbesar", `${best.e.name} menjadi porsi terbesar ${one.name}: ${rp(best.v)} (${pc(best.v, p.total)}% dari bebannya).`, "warn"]);
-      if(paid[one.id] || diff) ins.push(["Talangan", diff > 0 ? `${one.name} membayar ${rp(paid[one.id])} di muka, ${rp(diff)} lebih besar dari porsi bebannya.` : diff < 0 ? `${one.name} membayar ${rp(paid[one.id])} di muka, ${rp(-diff)} lebih kecil dari porsi bebannya.` : `${one.name} membayar ${rp(paid[one.id])} di muka, tepat sama dengan porsi bebannya.`, "info"]);
-    }else{
-      ins.push(["Pengeluaran", `Total pengeluaran ${rp(st.total)} selama ${nDays} hari dari ${T.e.length} transaksi, rata-rata ${rp(st.total / nDays)} per hari.`, "info"]);
-      ins.push(["Kas", st.cash === 0 ? "Belum ada Initial Cash yang tercatat." : st.bal < 0 ? `Kas awal ${rp(st.cash)} sudah terpakai ${pc(st.total, st.cash)}%. Defisit ${rp(-st.bal)}.` : `Kas awal ${rp(st.cash)} baru terpakai ${pc(st.total, st.cash)}%. Saldo tersisa ${rp(st.bal)}.`, st.cash && st.bal >= 0 ? "ok" : "bad"]);
-      ins.push(["Komposisi", fo === tr ? `Food dan Transport sama besar, masing-masing ${rp(fo)}.` : fo > tr ? `Food mendominasi dengan ${pc(fo,tot)}% (${rp(fo)}), sedangkan Transport ${pc(tr,tot)}%.` : `Transport mendominasi dengan ${pc(tr,tot)}% (${rp(tr)}), sedangkan Food ${pc(fo,tot)}%.`, "info"]);
-      const top = [...T.t].sort((a,b) => st.per[b.id].total - st.per[a.id].total)[0];
-      if(top && st.per[top.id].total > 0) ins.push(["Beban terbesar", `${top.name} menanggung beban terbesar: ${rp(st.per[top.id].total)} (${pc(st.per[top.id].total, st.total)}% dari total).`, "warn"]);
-      const neg = T.t.filter(x => st.per[x.id].bal < 0);
-      if(T.t.length) ins.push(["Status saldo", neg.length ? `${neg.length} dari ${T.t.length} traveler berstatus defisit: ${neg.map(x => x.name).join(", ")}.` : "Semua traveler masih memiliki saldo positif.", neg.length ? "bad" : "ok"]);
-      const cred = [...T.t].sort((a,b) => (paid[b.id] - st.per[b.id].total) - (paid[a.id] - st.per[a.id].total))[0];
-      if(cred && paid[cred.id] - st.per[cred.id].total > 0) ins.push(["Talangan", `${cred.name} membayar ${rp(paid[cred.id])} di muka, ${rp(paid[cred.id] - st.per[cred.id].total)} melebihi porsi bebannya sendiri.`, "info"]);
-      const big = [...T.e].sort((a,b) => b.price - a.price)[0];
-      ins.push(["Expense terbesar", `${big.name} sebesar ${rp(big.price)}, atau ${pc(big.price, st.total)}% dari seluruh pengeluaran.`, "warn"]);
-    }
-    need(22); f(7.5, true); tc(C.mute); doc.text("APA KATA DATA", M, y + 3); y += 7;
-    const bubble = (tag, text, tone) => {
-      const col = tone === "bad" ? [C.errc, C.err] : tone === "warn" ? [C.ambc, C.ambt] : tone === "ok" ? [C.pc, C.dk] : [C.zebra, C.mute];
-      f(9.5, false); const ls = wrap(text, CW - 16), h = 9.5 + ls.length * 4.5;
-      need(h + 4);
-      fc(col[0]); doc.roundedRect(M + 4, y, CW - 4, h, 3, 3, "F");
-      doc.triangle(M + 4.2, y + 4.5, M + 4.2, y + 10, M, y + 7.5, "F");
-      f(7.5, true); tc(col[1]); doc.text(tag.toUpperCase(), M + 9, y + 5.4);
-      f(9.5, false); tc(C.ink); ls.forEach((l,k) => doc.text(l, M + 9, y + 10.4 + k * 4.5));
-      y += h + 3.5;
-    };
-    ins.forEach(i => bubble(i[0], i[1], i[2]));
-    y += 6;
+    y += 2;
 
     /* ---- Tabel ---- */
     function table(cols, rows){
@@ -796,11 +756,11 @@ async function exportPdf(scope){
     const items = [...T.e].sort((a,b) => (a.date||"").localeCompare(b.date||""))
       .map(e => ({e, amt: one ? (portions(e)[one.id] || 0) : e.price}))
       .filter(r => !one || r.amt > 0);
-    const drows = items.map((r,i) => ({cells:[i+1, dmy(r.e.date), {t:r.e.name, sub:r.e.note || ""}, r.e.type, tname(T, r.e.source), rp(r.amt)]}));
+    const drows = items.map((r,i) => ({cells:[i+1, dmy(r.e.date), {t:r.e.name, sub:r.e.note || ""}, r.e.type, rp(r.amt)]}));
     const sum = items.reduce((a,r) => a + r.amt, 0);
-    if(!drows.length) drows.push({cells:["","","Belum ada expense","","",""]});
-    else drows.push({bold:true, fill:C.pc, cells:["","","TOTAL","","",rp(sum)]});
-    table([{l:"No",w:10,a:"center"},{l:"Tanggal",w:24,a:"center"},{l:"Expense",w:62,a:"left"},{l:"Type",w:22,a:"center"},{l:"Source",w:30,a:"left"},{l:one?"Porsi":"Jumlah",w:34,a:"right"}], drows);
+    if(!drows.length) drows.push({cells:["","","Belum ada expense","",""]});
+    else drows.push({bold:true, fill:C.pc, cells:["","","TOTAL","",rp(sum)]});
+    table([{l:"No",w:10,a:"center"},{l:"Tanggal",w:24,a:"center"},{l:"Expense",w:92,a:"left"},{l:"Type",w:22,a:"center"},{l:one?"Porsi":"Jumlah",w:34,a:"right"}], drows);
 
     f(8, false); tc(C.mute);
     const note = (one ? `Kolom Porsi menunjukkan bagian ${one.name} pada tiap expense. ` : "Jumlah adalah harga penuh tiap expense; beban per traveler mengikuti pengaturan Sharing. ")
