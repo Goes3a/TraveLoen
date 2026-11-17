@@ -554,7 +554,7 @@ function vDash(){
       ${canEdit(e)?`<div class="acts"><button class="ib pri" data-ed="${e.id}" aria-label="Edit expense">${ic("edit","s")}</button>${isAdmin()?`<button class="ib err" data-rm="${e.id}" aria-label="Hapus expense">${ic("del","s")}</button>`:""}</div>`:""}</div></div>`).join("")
     : `<div class="empty">${ic("receipt")}Belum ada expense</div>`) + `</div>
   <div class="card"><h2>${ic("pdf")}Export Invoice (PDF)</h2>
-    <label class="f">Cakupan<select id="pScope"><option value="all">Semua traveler</option>${T.t.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join("")}</select></label>
+    <label class="f">Cakupan<select id="pScope"><option value="all">Semua traveler</option><option value="user">User</option>${T.t.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join("")}</select></label>
     <button class="btn w" id="pBtn">${ic("pdf","s")}Download PDF</button></div>
   <div class="card"><h2>${ic("backup")}Cadangan Data</h2>
     <div class="chk" style="margin:0 0 12px">${ic("info","xs")}<span>Data tersimpan di perangkat ini saja dan hilang bila aplikasi dihapus. Buat cadangan secara berkala.</span></div>
@@ -660,7 +660,13 @@ function restore(ev){
 async function exportPdf(scope){
   try{
     if(!window.jspdf) return toast("Library PDF belum termuat");
-    const T = trip(), st = stats(T), one = scope !== "all" ? T.t.find(x=>x.id===scope) : null;
+    const T = trip(), st = stats(T);
+    const users = T.t.filter(x => x.role === "User");
+    if(scope === "user" && !users.length) return toast("Belum ada traveler dengan role User");
+    const one = scope !== "all" && scope !== "user" ? T.t.find(x => x.id === scope) : null;
+    // sub: cakupan sebagian traveler (satu orang, atau semua role User tanpa Admin)
+    const sub = scope === "user" ? {label:"User (tanpa Admin)", ids:users.map(x => x.id), group:true} : one ? {label:one.name, ids:[one.id]} : null;
+    const agg = sub ? sub.ids.reduce((a, id) => { const q = st.per[id]; a.cash += q.cash; a.food += q.food; a.trans += q.trans; a.total += q.total; a.bal += q.bal; return a; }, {cash:0, food:0, trans:0, total:0, bal:0}) : null;
     const doc = new window.jspdf.jsPDF({unit:"mm", format:"a4", compress:true});
     let FONT = "helvetica";
     try{
@@ -702,7 +708,7 @@ async function exportPdf(scope){
 
     /* ---- Info agenda ---- */
     const Lc = [["Agenda", T.agenda], ["Periode", `${dmy(T.start)} - ${dmy(T.end)}`], ["Durasi", `${days(T.start,T.end)} hari`]];
-    const Rc = [["Lokasi", T.location || "-"], ["Cakupan", one ? one.name : "Semua traveler"], ["Traveler", `${T.t.length} orang`]];
+    const Rc = [["Lokasi", T.location || "-"], ["Cakupan", sub ? sub.label : "Semua traveler"], ["Traveler", `${sub ? sub.ids.length : T.t.length} orang`]];
     const colW = CW / 2;
     f(9.5, false);
     const ri = Lc.map((l,i) => { const a = wrap(l[1], colW - 34), b = wrap(Rc[i][1], colW - 34); return {a, b, h: Math.max(a.length, b.length) * 4.4 + 2}; });
@@ -722,8 +728,8 @@ async function exportPdf(scope){
 
     /* ---- Summary ---- */
     section("Summary");
-    const p1 = one ? st.per[one.id] : null;
-    const kpi = one ? [["Initial Cash", p1.cash], ["Expense (porsi)", p1.total], ["Balance", p1.bal]]
+    const p1 = agg;
+    const kpi = sub ? [[sub.group ? "Total Initial Cash" : "Initial Cash", p1.cash], [sub.group ? "Total Expense (porsi)" : "Expense (porsi)", p1.total], [sub.group ? "Balance Overall" : "Balance", p1.bal]]
                     : [["Total Initial Cash", st.cash], ["Total Expenses", st.total], ["Balance Overall", st.bal]];
     need(30);
     const gap = 4, kw = (CW - 2*gap) / 3;
@@ -736,7 +742,7 @@ async function exportPdf(scope){
     });
     y += 28;
 
-    const fo = one ? p1.food : st.food, tr = one ? p1.trans : st.trans, tot = fo + tr;
+    const fo = sub ? p1.food : st.food, tr = sub ? p1.trans : st.trans, tot = fo + tr;
     need(24);
     f(7.5, true); tc(C.mute); doc.text("KOMPOSISI PENGELUARAN", M, y + 3); y += 6;
     fc(C.line); doc.roundedRect(M, y, CW, 5, 2.5, 2.5, "F");
@@ -790,25 +796,26 @@ async function exportPdf(scope){
     }
 
     section("Per Traveler");
-    const list = one ? [one] : T.t;
+    const list = sub ? T.t.filter(x => sub.ids.includes(x.id)) : T.t;
     const trows = list.map(x => { const p = st.per[x.id];
       return {cells:[x.name, rp(p.cash), rp(p.food), rp(p.trans), rp(p.total), {t:rp(p.bal), color: p.bal < 0 ? C.err : C.okt}]}; });
-    if(!one && list.length > 1) trows.push({bold:true, fill:C.pc, cells:["TOTAL", rp(st.cash), rp(st.food), rp(st.trans), rp(st.total), {t:rp(st.bal), color: st.bal < 0 ? C.err : C.okt}]});
+    const tt = agg || st;
+    if(list.length > 1) trows.push({bold:true, fill:C.pc, cells:["TOTAL", rp(tt.cash), rp(tt.food), rp(tt.trans), rp(tt.total), {t:rp(tt.bal), color: tt.bal < 0 ? C.err : C.okt}]});
     if(!trows.length) trows.push({cells:["Belum ada traveler","","","","",""]});
     table([{l:"Nama",w:52,a:"left"},{l:"Cash",w:26,a:"right",money:true},{l:"Food",w:26,a:"right",money:true},{l:"Transport",w:26,a:"right",money:true},{l:"Total",w:26,a:"right",money:true},{l:"Balance",w:26,a:"right",money:true}], trows);
 
     section("Rincian Expense");
     const items = [...T.e].sort((a,b) => (a.date||"").localeCompare(b.date||""))
-      .map(e => ({e, amt: one ? (portions(e)[one.id] || 0) : e.price}))
-      .filter(r => !one || r.amt > 0);
+      .map(e => ({e, amt: sub ? sub.ids.reduce((a, id) => a + (portions(e)[id] || 0), 0) : e.price}))
+      .filter(r => !sub || r.amt > 0);
     const drows = items.map((r,i) => ({cells:[i+1, dmy(r.e.date), {t:r.e.name, sub:r.e.note || ""}, r.e.type, rp(r.amt)]}));
     const sum = items.reduce((a,r) => a + r.amt, 0);
     if(!drows.length) drows.push({cells:["","","Belum ada expense","",""]});
     else drows.push({bold:true, fill:C.pc, cells:["","","TOTAL","",rp(sum)]});
-    table([{l:"No",w:10,a:"center"},{l:"Tanggal",w:24,a:"center"},{l:"Expense",w:92,a:"left"},{l:"Type",w:22,a:"center"},{l:one?"Porsi":"Jumlah",w:34,a:"right",money:true}], drows);
+    table([{l:"No",w:10,a:"center"},{l:"Tanggal",w:24,a:"center"},{l:"Expense",w:92,a:"left"},{l:"Type",w:22,a:"center"},{l:sub?"Porsi":"Jumlah",w:34,a:"right",money:true}], drows);
 
     f(8, false); tc(C.mute);
-    const note = (one ? `Kolom Porsi menunjukkan bagian ${one.name} pada tiap expense. ` : "Jumlah adalah harga penuh tiap expense; beban per traveler mengikuti pengaturan Sharing. ")
+    const note = (sub ? (sub.group ? "Kolom Porsi menunjukkan total bagian seluruh traveler dengan role User pada tiap expense (Admin tidak termasuk). " : `Kolom Porsi menunjukkan bagian ${one.name} pada tiap expense. `) : "Jumlah adalah harga penuh tiap expense; beban per traveler mengikuti pengaturan Sharing. ")
       + "Sisa pembulatan rupiah dibebankan ke traveler pertama pada daftar Sharing.";
     const nl = wrap("Catatan: " + note, CW); need(nl.length * 3.8 + 2);
     nl.forEach((l,k) => doc.text(l, M, y + k * 3.8));
@@ -821,7 +828,7 @@ async function exportPdf(scope){
       doc.text(`Halaman ${i} dari ${n}`, W - M, H - 7.5, {align:"right"});
     }
 
-    const name = `Invoice_${slug(T.agenda)}_${one ? slug(one.name) : "semua"}.pdf`;
+    const name = `Invoice_${slug(T.agenda)}_${sub ? (sub.group ? "User" : slug(one.name)) : "semua"}.pdf`;
     const b64 = doc.output("datauristring").split(",")[1];
     await saveFile(name, "application/pdf", {base64: b64});
     toast("PDF siap");
